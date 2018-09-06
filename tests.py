@@ -3311,7 +3311,7 @@ class TestUsers(unittest.TestCase):
 		self.users.delete_permissions(scope='scope2', preserve_protected=False)
 		self.assertIsNone(self.users.get_permission(permission2.id))
 
-	def test_deleteuser_permissions_by_user_ids(self):
+	def test_delete_user_permissions_by_user_ids(self):
 		user1 = self.users.create_user()
 		user2 = self.users.create_user()
 		permission1 = self.users.create_permission(
