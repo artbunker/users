@@ -113,6 +113,8 @@ class User:
 		self.authentications = authentications
 		self.permissions = permissions
 
+		self.identifier = self.id
+
 	def is_active(self):
 		if UserStatus.ACTIVATED == self.status:
 			return True
@@ -865,6 +867,8 @@ class Users:
 				last_seen_time=int(last_seen_time),
 				protected=protected,
 			)
+			if self.require_unique_names and user.name:
+				user.identifier = user.name
 			users.add(user)
 
 		return users
@@ -888,6 +892,8 @@ class Users:
 			name=str(user.name),
 			display=str(user.display),
 		)
+		if self.require_unique_names and user.name:
+			user.identifier = user.name
 		return user
 
 	def update_user(self, id, **kwargs):

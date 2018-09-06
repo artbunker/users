@@ -2076,6 +2076,20 @@ class TestUsers(unittest.TestCase):
 		# specifying an unchanged name while updating shouldn't raise
 		self.users.update_user(user1.id, touch_time=1234567890, name='test1')
 
+	def test_unique_user_names_as_identifier(self):
+		# normally user id is used as identifier
+		user1 = self.users.create_user(name='test1')
+		self.assertEqual(user1.identifier, user1.id)
+
+		# when unique names are required and a name is present it's used
+		self.users.require_unique_names = True
+		user2 = self.users.create_user(name='test2')
+		self.assertEqual(user2.identifier, 'test2')
+
+		# when unique names are required but name is blank user id is used
+		user3 = self.users.create_user()
+		self.assertEqual(user3.identifier, user3.id)
+
 	def test_allow_duplicate_user_displays(self):
 		# by default unique user displays aren't required
 		self.assertFalse(self.users.require_unique_displays)
