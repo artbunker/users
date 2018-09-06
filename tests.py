@@ -1,7 +1,5 @@
 import sys
 import unittest
-import os
-import shutil
 import uuid
 import time
 from datetime import datetime, timezone
