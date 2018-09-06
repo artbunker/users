@@ -2471,9 +2471,7 @@ class TestUsers(unittest.TestCase):
 		self.assertIsNone(self.users.get_session(session1.id))
 		self.assertIsNone(self.users.get_session(session2.id))
 
-		self.assert_invalid_id_raises(
-			lambda input: self.users.delete_user_sessions(input)
-		)
+		self.assert_invalid_id_raises(self.users.delete_user_sessions)
 
 	def test_search_sessions_by_useragent_id(self):
 		#TODO generalize search_by_id and test search_session_by_useragent_id
