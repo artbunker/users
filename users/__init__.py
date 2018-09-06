@@ -1117,16 +1117,15 @@ class Users:
 			'user_ids',
 			self.sessions.c.user_id,
 		)
-		if 'useragents' in filter:
-			conditions += string_equal_filter(
-				filter,
-				'useragents',
-				useragents_subquery.c.useragent,
-			)
 		conditions += remote_origin_filter(
 			filter,
 			'remote_origins',
 			self.sessions.c.remote_origin,
+		)
+		conditions += string_equal_filter(
+			filter,
+			'useragents',
+			useragents_subquery.c.useragent,
 		)
 		conditions += id_filter(
 			filter,
