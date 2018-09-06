@@ -13,6 +13,7 @@ from sqlalchemy.sql import func, and_, or_
 from statement_helper import sort_statement, paginate_statement, id_filter
 from statement_helper import time_filter, string_equal_filter
 from statement_helper import string_like_filter, bitwise_filter
+from statement_helper import remote_origin_filter
 from base64_url import base64_url_encode, base64_url_decode
 from idcollection import IDCollection
 from parse_id import parse_id
@@ -1116,29 +1117,17 @@ class Users:
 			'user_ids',
 			self.sessions.c.user_id,
 		)
-		if 'remote_origins' in filter:
-			if list is not type(filter['remote_origins']):
-				filter['remote_origins'] = [filter['remote_origins']]
-			block_conditions = []
-			for remote_origin in filter['remote_origins']:
-				try:
-					remote_origin = ip_address(str(remote_origin))
-				except:
-					pass
-				else:
-					block_conditions.append(
-						self.sessions.c.remote_origin == remote_origin.packed
-					)
-			if block_conditions:
-				conditions.append(or_(*block_conditions))
-			else:
-				conditions.append(False)
 		if 'useragents' in filter:
 			conditions += string_equal_filter(
 				filter,
 				'useragents',
 				useragents_subquery.c.useragent,
 			)
+		conditions += remote_origin_filter(
+			filter,
+			'remote_origins',
+			self.sessions.c.remote_origin,
+		)
 		conditions += id_filter(
 			filter,
 			'useragent_ids',

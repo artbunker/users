@@ -2596,22 +2596,45 @@ class TestUsers(unittest.TestCase):
 		session2 = self.users.create_session(remote_origin=remote_origin1)
 		session3 = self.users.create_session(remote_origin=remote_origin2)
 
+		# with
 		sessions = self.users.search_sessions(
-			filter={'remote_origins': remote_origin1},
+			filter={'with_remote_origins': remote_origin1},
 		)
 		self.assertTrue(session1 in sessions)
 		self.assertTrue(session2 in sessions)
 		self.assertTrue(session3 not in sessions)
 
 		sessions = self.users.search_sessions(
-			filter={'remote_origins': remote_origin2},
+			filter={'with_remote_origins': remote_origin2},
 		)
 		self.assertTrue(session1 not in sessions)
 		self.assertTrue(session2 not in sessions)
 		self.assertTrue(session3 in sessions)
 
 		sessions = self.users.search_sessions(
-			filter={'remote_origins': [remote_origin1, remote_origin2]},
+			filter={'with_remote_origins': [remote_origin1, remote_origin2]},
+		)
+		self.assertTrue(session1 in sessions)
+		self.assertTrue(session2 in sessions)
+		self.assertTrue(session3 in sessions)
+
+		# without
+		sessions = self.users.search_sessions(
+			filter={'without_remote_origins': remote_origin1},
+		)
+		self.assertTrue(session1 not in sessions)
+		self.assertTrue(session2 not in sessions)
+		self.assertTrue(session3 in sessions)
+
+		sessions = self.users.search_sessions(
+			filter={'without_remote_origins': remote_origin2},
+		)
+		self.assertTrue(session1 in sessions)
+		self.assertTrue(session2 in sessions)
+		self.assertTrue(session3 not in sessions)
+
+		sessions = self.users.search_sessions(
+			filter={'without_remote_origins': [remote_origin1, remote_origin2]},
 		)
 		self.assertTrue(session1 in sessions)
 		self.assertTrue(session2 in sessions)
@@ -2624,29 +2647,51 @@ class TestUsers(unittest.TestCase):
 		]
 		# filters with all invalid values should return none
 		sessions = self.users.search_sessions(
-			filter={'remote_origins': invalid_values}
+			filter={'with_remote_origins': invalid_values}
 		)
 		self.assertEqual(0, len(sessions))
 		for invalid_value in invalid_values:
 			sessions = self.users.search_sessions(
-				filter={'remote_origins': invalid_value},
+				filter={'with_remote_origins': invalid_value},
+			)
+			self.assertEqual(0, len(sessions))
+		sessions = self.users.search_sessions(
+			filter={'without_remote_origins': invalid_values}
+		)
+		self.assertEqual(0, len(sessions))
+		for invalid_value in invalid_values:
+			sessions = self.users.search_sessions(
+				filter={'without_remote_origins': invalid_value},
 			)
 			self.assertEqual(0, len(sessions))
 		# filters with at least one valid value should behave normally
 		# ignoring any invalid values
 		sessions = self.users.search_sessions(
-			filter={'remote_origins': invalid_values + [remote_origin1]},
+			filter={'with_remote_origins': invalid_values + [remote_origin1]},
 		)
 		self.assertTrue(session1 in sessions)
 		self.assertTrue(session2 in sessions)
 		self.assertTrue(session3 not in sessions)
 		for invalid_value in invalid_values:
 			sessions = self.users.search_sessions(
-				filter={'remote_origins': [invalid_value, remote_origin1]},
+				filter={'with_remote_origins': [invalid_value, remote_origin1]},
 			)
 			self.assertTrue(session1 in sessions)
 			self.assertTrue(session2 in sessions)
 			self.assertTrue(session3 not in sessions)
+		sessions = self.users.search_sessions(
+			filter={'without_remote_origins': invalid_values + [remote_origin1]},
+		)
+		self.assertTrue(session1 not in sessions)
+		self.assertTrue(session2 not in sessions)
+		self.assertTrue(session3 in sessions)
+		for invalid_value in invalid_values:
+			sessions = self.users.search_sessions(
+				filter={'without_remote_origins': [invalid_value, remote_origin1]},
+			)
+			self.assertTrue(session1 not in sessions)
+			self.assertTrue(session2 not in sessions)
+			self.assertTrue(session3 in sessions)
 
 	# authentications
 	def test_forbidden_authentication(self):
