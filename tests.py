@@ -2033,6 +2033,8 @@ class TestUsers(unittest.TestCase):
 		for key, value in properties.items():
 			self.assertEqual(getattr(user, key), value)
 
+		self.assert_invalid_id_raises(self.users.update_user)
+
 	def test_user_name(self):
 		invalid_user_name = 'contains spaces and special characters #$@!'
 		with self.assertRaises(ValueError):
