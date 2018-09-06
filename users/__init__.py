@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from sqlalchemy import Table, Column, PrimaryKeyConstraint, LargeBinary
 from sqlalchemy import Integer, String, MetaData, ForeignKey
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.sql import select, func, and_, or_
+from sqlalchemy.sql import func, and_, or_
 
 from statement_helper import sort_statement, paginate_statement, id_filter
 from statement_helper import time_filter, string_equal_filter
