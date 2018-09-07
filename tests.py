@@ -7,25 +7,14 @@ from datetime import datetime, timezone
 from ipaddress import ip_address
 from sqlalchemy import create_engine
 
+from testhelper import TestHelper, compare_base_attributes
 from base64_url import base64_url_encode, base64_url_decode
 from users import Users, UserStatus, User, Invite, Session, Authentication
 from users import Permission, AutoPermission, parse_id
 
-def compare_int_str_and_bool_attributes(object1, object2):
-	# check if all int, string, and bool properties of two objects are equal
-	for attr, value in object1.__dict__.items():
-		if (
-				isinstance(value, int)
-				or isinstance(value, str)
-				or isinstance(value, bool)
-			):
-			if value != getattr(object2, attr):
-				return False
-	return True
-
 db_url = ''
 
-class TestUsers(unittest.TestCase):
+class TestUsers(TestHelper):
 	def setUp(self):
 		if db_url:
 			engine = create_engine(db_url)
@@ -42,44 +31,6 @@ class TestUsers(unittest.TestCase):
 		if db_url:
 			self.users.uninstall()
 
-	def assert_invalid_id_raises(self, f):
-		# if id is a string it must be a base64_url string
-		# and if id is not a string it must be bytes-like
-		for invalid_id in [
-				'not a valid base64_url string',
-				'invalid_padding_for_base64_url_id',
-				1,
-				['list'],
-				{'dict': 'ionary'},
-			]:
-			with self.assertRaises(Exception):
-				f(invalid_id)
-
-	def assert_invalid_id_returns_none(self, f):
-		# if id is a string it must be a base64_url string
-		# and if user id is not a string it must be bytes-like
-		for invalid_id in [
-				'not a valid base64_url string',
-				'invalid_padding_for_base64_url_id',
-				1,
-				[],
-				{},
-				['list'],
-				{'dict': 'ionary'},
-			]:
-			self.assertEqual(None, f(invalid_id))
-
-	def assert_invalid_timestamp_raises(self, f):
-		# anything that doesn't cast to int or that isn't accepted by
-		# datetime.fromtimestamp should raise
-		for invalid_timestamp in [
-				'string',
-				['list'],
-				{'dict': 'ionary'},
-			]:
-			with self.assertRaises(Exception):
-				f(invalid_timestamp)
-
 	def assert_non_user_raises(self, f):
 		# any non-user object should raise
 		for invalid_user in [
@@ -90,13 +41,6 @@ class TestUsers(unittest.TestCase):
 			]:
 			with self.assertRaises(Exception):
 				f(invalid_user)
-
-	def assert_invalid_string_raises(self, f):
-		# string inputs are cast to string so anything that doesn't
-		# cast gracefully to string should raise
-		#TODO most objects cast gracefully to a string representation
-		#TODO are there python objects that raise when casting to string?
-		pass
 
 	def test_parse_id(self):
 		for invalid_input in [
@@ -118,28 +62,6 @@ class TestUsers(unittest.TestCase):
 		self.assertEqual(id_bytes, expected_bytes)
 
 	# class instantiation, create, get, and defaults
-	def class_create_get_and_defaults(self, class_name, create, get, defaults):
-		# instantiate directly
-		instance = class_name()
-		# create in db
-		object = create()
-		self.assertIsInstance(object, class_name)
-		# objects can be retrieved by both id and id_bytes
-		self.assertTrue(
-			compare_int_str_and_bool_attributes(
-				get(object.id),
-				get(object.id_bytes),
-			)
-		)
-		# fetched object should be the same as the one returned from create
-		self.assertTrue(
-			compare_int_str_and_bool_attributes(object, get(object.id))
-		)
-		# default values should match
-		for property, value in defaults.items():
-			self.assertEqual(value, getattr(instance, property))
-			self.assertEqual(value, getattr(object, property))
-
 	def test_user_class_create_get_and_defaults(self):
 		self.class_create_get_and_defaults(
 			User,
@@ -268,46 +190,6 @@ class TestUsers(unittest.TestCase):
 
 	# class instantiation and db object creation with properties
 	# id properties
-	def id_property(self, class_name, create, property):
-		# id can be specified from bytes-like
-		expected_id_bytes = uuid.uuid4().bytes
-		expected_id = base64_url_encode(expected_id_bytes)
-		# instantiate directly
-		instance = class_name(**{property: expected_id_bytes})
-		instance_id_bytes = getattr(instance, property + '_bytes')
-		instance_id = getattr(instance, property)
-		self.assertEqual(expected_id_bytes, instance_id_bytes)
-		self.assertEqual(expected_id, instance_id)
-		# create in db
-		object = create(**{property: expected_id_bytes})
-		object_id_bytes = getattr(object, property + '_bytes')
-		object_id = getattr(object, property)
-		self.assertEqual(expected_id_bytes, object_id_bytes)
-		self.assertEqual(expected_id, object_id)
-
-		# id can be specified from a base64_url string
-		expected_id_bytes = uuid.uuid4().bytes
-		expected_id = base64_url_encode(expected_id_bytes)
-		# instantiate directly
-		instance = class_name(**{property: expected_id})
-		instance_id_bytes = getattr(instance, property + '_bytes')
-		instance_id = getattr(instance, property)
-		self.assertEqual(expected_id_bytes, instance_id_bytes)
-		self.assertEqual(expected_id, instance_id)
-		# create in db
-		object = create(**{property: expected_id})
-		object_id_bytes = getattr(object, property + '_bytes')
-		object_id = getattr(object, property)
-		self.assertEqual(expected_id_bytes, object_id_bytes)
-		self.assertEqual(expected_id, object_id)
-
-		self.assert_invalid_id_raises(
-			lambda input: class_name(**{property: input})
-		)
-		self.assert_invalid_id_raises(
-			lambda input: create(**{property: input})
-		)
-
 	def test_user_id_property(self):
 		self.id_property(User, self.users.create_user, 'id')
 
@@ -364,52 +246,6 @@ class TestUsers(unittest.TestCase):
 		)
 
 	# time properties
-	def time_property(self, class_name, create, property):
-		for valid_timestamp in [
-				# valid int
-				0,
-				1111111111,
-				1234567890,
-				-1,
-				# valid but non-int
-				0.1,
-				1111111111.12345,
-				1234567890.12345,
-				-1.1,
-			]:
-			# time properties first cast to int then use datetime.fromtimestamp
-			# so shouldn't raise on valid input, but should only result in ints
-			valid_timestamp = int(valid_timestamp)
-			expected_datetime = datetime.fromtimestamp(
-				valid_timestamp,
-				timezone.utc,
-			)
-
-			# instantiate directly
-			instance = class_name(
-				**{property + '_time': valid_timestamp}
-			)
-			instance_time = getattr(instance, property + '_time')
-			instance_datetime = getattr(
-				instance, property + '_datetime'
-			)
-			self.assertEqual(valid_timestamp, instance_time)
-			self.assertEqual(expected_datetime, instance_datetime)
-
-			# create in db
-			object = create(**{property + '_time': valid_timestamp})
-			object_time = getattr(object, property + '_time')
-			object_datetime = getattr(object, property + '_datetime')
-			self.assertEqual(valid_timestamp, object_time)
-			self.assertEqual(expected_datetime, object_datetime)
-
-		self.assert_invalid_timestamp_raises(
-			lambda input: class_name(**{property + '_time': input})
-		)
-		self.assert_invalid_timestamp_raises(
-			lambda input: create(**{property + '_time': input})
-		)
-
 	def test_user_creation_time_property(self):
 		self.time_property(User, self.create_unique_user, 'creation')
 
@@ -470,37 +306,6 @@ class TestUsers(unittest.TestCase):
 		)
 
 	# bool properties
-	def bool_property(self, class_name, create, property):
-		# bool properties are evaluated to truthy or falsy, so there aren't
-		# any invalid inputs, just what they're interpreted as
-		truthy_inputs = [
-			True,
-			'non-empty string',
-			['non-empty list'],
-			{'non-empty': 'dict'},
-		]
-		for truthy_input in truthy_inputs:
-			# instantiate directly
-			instance = class_name(
-				**{property: truthy_input}
-			)
-			self.assertEqual(True, getattr(instance, property))
-
-			# create in db
-			object = create(**{property: truthy_input})
-			self.assertEqual(True, getattr(object, property))
-
-		falsy_inputs = [False, '', [], {}, None]
-		for falsy_input in falsy_inputs:
-			# instantiate directly
-			instance = class_name(
-				**{property: falsy_input}
-			)
-			self.assertEqual(False, getattr(instance, property))
-
-			# create in db
-			object = create(**{property: falsy_input})
-			self.assertEqual(False, getattr(object, property))
 
 	# user protected is dependent on using protect_user/unprotect_user
 	# and isn't created on users directly
@@ -513,40 +318,6 @@ class TestUsers(unittest.TestCase):
 		)
 
 	# string properties
-	def string_property(self, class_name, create, property):
-		for valid_string in [
-				# valid string
-				'some string',
-				# valid but non-strings
-				1,
-				0.1,
-				[],
-				{},
-				['list'],
-				{'dict': 'ionary'},
-			]:
-			# string properties first cast to string
-			# so shouldn't raise on valid input, but should only result in strings
-			valid_string = str(valid_string)
-
-			# instantiate directly
-			instance = class_name(
-				**{property: valid_string}
-			)
-			instance_string = getattr(instance, property)
-			self.assertEqual(valid_string, instance_string)
-
-			# create in db
-			object = create(**{property: valid_string})
-			object_string = getattr(object, property)
-			self.assertEqual(valid_string, object_string)
-
-		self.assert_invalid_string_raises(
-			lambda input: class_name(**{property: input})
-		)
-		self.assert_invalid_string_raises(
-			lambda input: create(**{property: input})
-		)
 
 	# user name has specific restrictions tested below
 
@@ -590,20 +361,6 @@ class TestUsers(unittest.TestCase):
 		)
 
 	# delete
-	def delete(self, create, get, delete):
-		# by id
-		object = create()
-		self.assertIsNotNone(get(object.id))
-		delete(object.id)
-		self.assertIsNone(get(object.id))
-		# by id_bytes
-		object = create()
-		self.assertIsNotNone(get(object.id))
-		delete(object.id_bytes)
-		self.assertIsNone(get(object.id))
-
-		self.assert_invalid_id_raises(delete)
-
 	def test_delete_user(self):
 		self.delete(
 			self.users.create_user,
@@ -647,15 +404,6 @@ class TestUsers(unittest.TestCase):
 		)
 
 	# id collision
-	def id_collision(self, create):
-		object = create()
-		# by id
-		with self.assertRaises(Exception):
-			create(id=object.id)
-		# by id_bytes
-		with self.assertRaises(Exception):
-			create(id=object.id_bytes)
-
 	def test_users_id_collision(self):
 		self.id_collision(self.users.create_user)
 
@@ -677,23 +425,6 @@ class TestUsers(unittest.TestCase):
 		self.id_collision(self.users.create_auto_permission)
 
 	# unfiltered count
-	def count(self, create, count, delete):
-		object1 = create()
-		object2 = create()
-		self.assertEqual(2, count())
-
-		delete(object2.id)
-		self.assertEqual(1, count())
-
-		object3 = create()
-		self.assertEqual(2, count())
-
-		delete(object3.id)
-		self.assertEqual(1, count())
-
-		delete(object1.id)
-		self.assertEqual(0, count())
-
 	def test_count_users(self):
 		self.count(
 			self.users.create_user,
@@ -739,36 +470,6 @@ class TestUsers(unittest.TestCase):
 		)
 
 	# unfiltered search
-	def search(self, create, search, delete):
-		object1 = create()
-		object2 = create()
-		objects = search()
-		self.assertTrue(object1 in objects)
-		self.assertTrue(object2 in objects)
-
-		delete(object2.id)
-		objects = search()
-		self.assertTrue(object1 in objects)
-		self.assertTrue(object2 not in objects)
-
-		object3 = create()
-		objects = search()
-		self.assertTrue(object1 in objects)
-		self.assertTrue(object2 not in objects)
-		self.assertTrue(object3 in objects)
-
-		delete(object3.id)
-		objects = search()
-		self.assertTrue(object1 in objects)
-		self.assertTrue(object2 not in objects)
-		self.assertTrue(object3 not in objects)
-
-		delete(object1.id)
-		objects = search()
-		self.assertTrue(object1 not in objects)
-		self.assertTrue(object2 not in objects)
-		self.assertTrue(object3 not in objects)
-
 	def test_search_users(self):
 		self.search(
 			self.users.create_user,
@@ -814,79 +515,11 @@ class TestUsers(unittest.TestCase):
 		)
 
 	# sort order and pagination
-	def search_sort_order_and_pagination(
-			self,
-			create,
-			column_field,
-			search,
-			numeric=True,
-		):
-		first_kwargs = {}
-		middle_kwargs = {}
-		last_kwargs = {}
-		if numeric:
-			first_kwargs[column_field] = 1
-			middle_kwargs[column_field] = 2
-			last_kwargs[column_field] = 3
-		else:
-			first_kwargs[column_field] = 'a'
-			middle_kwargs[column_field] = 'b'
-			last_kwargs[column_field] = 'c'
-
-		object_first = create(**first_kwargs)
-		object_middle = create(**middle_kwargs)
-		object_last = create(**last_kwargs)
-
-		# ascending
-		ascending_objects = [
-			object_first,
-			object_middle,
-			object_last,
-		]
-		objects = search(sort=column_field, order='asc')
-		for object in ascending_objects:
-			self.assertTrue(
-				compare_int_str_and_bool_attributes(
-					object,
-					objects.values()[ascending_objects.index(object)],
-				)
-			)
-		for page in range(4):
-			objects = search(sort=column_field, order='asc', perpage=1, page=page)
-			for object in ascending_objects:
-				if ascending_objects.index(object) != page:
-					self.assertTrue(object not in objects)
-				else:
-					self.assertTrue(object in objects)
-
-		# descending
-		descending_objects = [
-			object_last,
-			object_middle,
-			object_first,
-		]
-		objects = search(sort=column_field, order='desc')
-		for object in descending_objects:
-			self.assertTrue(
-				compare_int_str_and_bool_attributes(
-					object,
-					objects.values()[descending_objects.index(object)],
-				)
-			)
-		for page in range(4):
-			objects = search(sort=column_field, order='desc', perpage=1, page=page)
-			for object in descending_objects:
-				if descending_objects.index(object) != page:
-					self.assertTrue(object not in objects)
-				else:
-					self.assertTrue(object in objects)
-
 	def test_search_users_creation_time_sort_order_and_pagination(self):
 		self.search_sort_order_and_pagination(
 			self.users.create_user,
 			'creation_time',
 			self.users.search_users,
-			numeric=True,
 		)
 
 	def test_search_users_touch_time_sort_order_and_pagination(self):
@@ -894,7 +527,6 @@ class TestUsers(unittest.TestCase):
 			self.users.create_user,
 			'touch_time',
 			self.users.search_users,
-			numeric=True,
 		)
 
 	def test_search_users_name_sort_order_and_pagination(self):
@@ -902,7 +534,9 @@ class TestUsers(unittest.TestCase):
 			self.users.create_user,
 			'name',
 			self.users.search_users,
-			numeric=False,
+			first_value='a',
+			middle_value='b',
+			last_value='c',
 		)
 
 	def test_search_users_display_sort_order_and_pagination(self):
@@ -910,7 +544,9 @@ class TestUsers(unittest.TestCase):
 			self.users.create_user,
 			'display',
 			self.users.search_users,
-			numeric=False,
+			first_value='a',
+			middle_value='b',
+			last_value='c',
 		)
 
 	def test_search_last_seen_time_sort_order_and_pagination(self):
@@ -928,7 +564,6 @@ class TestUsers(unittest.TestCase):
 			create_user_with_last_seen_time,
 			'last_seen_time',
 			self.users.search_users,
-			numeric=True,
 		)
 
 	def test_search_invites_creation_time_sort_order_and_pagination(self):
@@ -936,7 +571,6 @@ class TestUsers(unittest.TestCase):
 			self.users.create_invite,
 			'creation_time',
 			self.users.search_invites,
-			numeric=True,
 		)
 
 	def test_search_invites_redeem_time_sort_order_and_pagination(self):
@@ -944,7 +578,6 @@ class TestUsers(unittest.TestCase):
 			self.users.create_invite,
 			'redeem_time',
 			self.users.search_invites,
-			numeric=True,
 		)
 
 	def test_search_sessions_creation_time_sort_order_and_pagination(self):
@@ -952,7 +585,6 @@ class TestUsers(unittest.TestCase):
 			self.users.create_session,
 			'creation_time',
 			self.users.search_sessions,
-			numeric=True,
 		)
 
 	def test_search_sessions_touch_time_sort_order_and_pagination(self):
@@ -960,7 +592,6 @@ class TestUsers(unittest.TestCase):
 			self.users.create_session,
 			'touch_time',
 			self.users.search_sessions,
-			numeric=True,
 		)
 
 	def test_search_sessions_close_time_sort_order_and_pagination(self):
@@ -968,7 +599,6 @@ class TestUsers(unittest.TestCase):
 			self.users.create_session,
 			'close_time',
 			self.users.search_sessions,
-			numeric=True,
 		)
 
 	def test_search_authentications_creation_time_sort_order_and_pagination(
@@ -979,7 +609,6 @@ class TestUsers(unittest.TestCase):
 			self.create_unique_authentication,
 			'creation_time',
 			self.users.search_authentications,
-			numeric=True,
 		)
 
 	def test_search_authentications_service_sort_order_and_pagination(self):
@@ -988,7 +617,6 @@ class TestUsers(unittest.TestCase):
 			self.create_unique_authentication,
 			'service',
 			self.users.search_authentications,
-			numeric=False,
 		)
 
 	def test_search_authentications_value_sort_order_and_pagination(self):
@@ -997,7 +625,9 @@ class TestUsers(unittest.TestCase):
 			self.create_unique_authentication,
 			'value',
 			self.users.search_authentications,
-			numeric=False,
+			first_value='a',
+			middle_value='b',
+			last_value='c',
 		)
 
 	def test_search_permissions_creation_time_sort_order_and_pagination(self):
@@ -1006,7 +636,6 @@ class TestUsers(unittest.TestCase):
 			self.create_unique_permission,
 			'creation_time',
 			self.users.search_permissions,
-			numeric=True,
 		)
 
 	def test_search_permissions_scope_sort_order_and_pagination(self):
@@ -1015,7 +644,9 @@ class TestUsers(unittest.TestCase):
 			self.create_unique_permission,
 			'scope',
 			self.users.search_permissions,
-			numeric=False,
+			first_value='a',
+			middle_value='b',
+			last_value='c',
 		)
 
 	def test_search_auto_permissions_creation_time_sort_order_and_pagination(
@@ -1025,7 +656,6 @@ class TestUsers(unittest.TestCase):
 			self.users.create_auto_permission,
 			'creation_time',
 			self.users.search_auto_permissions,
-			numeric=True,
 		)
 
 	def test_search_auto_permissions_scope_sort_order_and_pagination(self):
@@ -1033,7 +663,9 @@ class TestUsers(unittest.TestCase):
 			self.users.create_auto_permission,
 			'scope',
 			self.users.search_auto_permissions,
-			numeric=False,
+			first_value='a',
+			middle_value='b',
+			last_value='c',
 		)
 
 	def test_search_auto_permissions_duration_sort_order_and_pagination(self):
@@ -1041,7 +673,6 @@ class TestUsers(unittest.TestCase):
 			self.users.create_auto_permission,
 			'duration',
 			self.users.search_auto_permissions,
-			numeric=True,
 		)
 
 	def test_search_auto_permissions_valid_from_time_sort_order_and_pagination(
@@ -1051,7 +682,6 @@ class TestUsers(unittest.TestCase):
 			self.users.create_auto_permission,
 			'valid_from_time',
 			self.users.search_auto_permissions,
-			numeric=True,
 		)
 
 	def test_search_auto_permissions_valid_until_time_sort_order_and_pagination(
@@ -1061,140 +691,27 @@ class TestUsers(unittest.TestCase):
 			self.users.create_auto_permission,
 			'valid_until_time',
 			self.users.search_auto_permissions,
-			numeric=True,
 		)
 
 	# search by id
-	def search_by_id(self, create, search):
-		object1 = create()
-		object2 = create()
-
-		objects = search(
-			filter={'ids': object1.id}
-		)
-		self.assertTrue(object1 in objects)
-		self.assertTrue(object2 not in objects)
-
-		objects = search(
-			filter={'ids': object2.id}
-		)
-		self.assertTrue(object1 not in objects)
-		self.assertTrue(object2 in objects)
-
-		objects = search(
-			filter={
-				'ids': [
-					object1.id,
-					object2.id,
-				]
-			}
-		)
-		self.assertTrue(object1 in objects)
-		self.assertTrue(object2 in objects)
-
-		invalid_values = [
-			'not a valid base64_url string',
-			'invalid_padding_for_base64_url_id',
-			1,
-		]
-		# filters with all invalid values should return none
-		objects = search(filter={'ids': invalid_values})
-		self.assertEqual(0, len(objects))
-		for invalid_value in invalid_values:
-			objects = search(filter={'ids': invalid_value})
-			self.assertEqual(0, len(objects))
-		# filters with at least one valid value should behave normally
-		# ignoring any invalid values
-		objects = search(filter={'ids': invalid_values + [object1.id]})
-		self.assertTrue(object1 in objects)
-		self.assertTrue(object2 not in objects)
-		for invalid_value in invalid_values:
-			objects = search(filter={'ids': [invalid_value, object1.id]})
-			self.assertTrue(object1 in objects)
-			self.assertTrue(object2 not in objects)
-
 	def test_search_users_by_id(self):
-		self.search_by_id(self.users.create_user, self.users.search_users)
+		self.search_by_id(
+			self.users.create_user,
+			'id',
+			self.users.search_users,
+			'ids',
+		)
 
 	def test_search_invites_by_id(self):
-		self.search_by_id(self.users.create_invite, self.users.search_invites)
-
-	def test_search_sessions_by_id(self):
-		self.search_by_id(self.users.create_session, self.users.search_sessions)
-
-	def test_search_authentications_by_id(self):
-		# using create_unique_authentication to avoid collisions
 		self.search_by_id(
-			self.create_unique_authentication,
-			self.users.search_authentications,
+			self.users.create_invite,
+			'id',
+			self.users.search_invites,
+			'ids',
 		)
-
-	def test_search_permissions_by_id(self):
-		# using create_unique_permission to avoid collisions
-		self.search_by_id(
-			self.create_unique_permission,
-			self.users.search_permissions,
-		)
-
-	def test_search_auto_permissions_by_id(self):
-		self.search_by_id(
-			self.users.create_auto_permission,
-			self.users.search_auto_permissions,
-		)
-
-	# search by user id
-	def search_by_user_id(
-			self,
-			create,
-			column_field,
-			search,
-			filter_field,
-		):
-		user1 = self.users.create_user()
-		user2 = self.users.create_user()
-		user3 = self.users.create_user()
-
-		object1 = create(**{column_field: user1.id})
-		object2 = create(**{column_field: user2.id})
-
-		objects = search(filter={filter_field: user1.id})
-		self.assertTrue(object1 in objects)
-		self.assertTrue(object2 not in objects)
-
-		objects = search(filter={filter_field: user2.id})
-		self.assertTrue(object1 not in objects)
-		self.assertTrue(object2 in objects)
-
-		objects = search(filter={filter_field: user3.id})
-		self.assertEqual(0, len(objects))
-
-		objects = search(filter={filter_field: [user1.id, user2.id]})
-		self.assertTrue(object1 in objects)
-		self.assertTrue(object2 in objects)
-
-		invalid_values = [
-			'not a valid base64_url string',
-			'invalid_padding_for_base64_url_id',
-			1,
-		]
-		# filters with all invalid values should return none
-		objects = search(filter={filter_field: invalid_values})
-		self.assertEqual(0, len(objects))
-		for invalid_value in invalid_values:
-			objects = search(filter={filter_field: invalid_value})
-			self.assertEqual(0, len(objects))
-		# filters with at least one valid value should behave normally
-		# ignoring any invalid values
-		objects = search(filter={filter_field: invalid_values + [user1.id]})
-		self.assertTrue(object1 in objects)
-		self.assertTrue(object2 not in objects)
-		for invalid_value in invalid_values:
-			objects = search(filter={filter_field: [invalid_value, user1.id]})
-			self.assertTrue(object1 in objects)
-			self.assertTrue(object2 not in objects)
 
 	def test_search_invites_by_created_by_user_id(self):
-		self.search_by_user_id(
+		self.search_by_id(
 			self.users.create_invite,
 			'created_by_user_id',
 			self.users.search_invites,
@@ -1202,40 +719,86 @@ class TestUsers(unittest.TestCase):
 		)
 
 	def test_search_invites_by_redeemed_by_user_id(self):
-		self.search_by_user_id(
+		self.search_by_id(
 			self.users.create_invite,
 			'redeemed_by_user_id',
 			self.users.search_invites,
 			'redeemed_by_user_ids',
 		)
 
+	def test_search_sessions_by_id(self):
+		self.search_by_id(
+			self.users.create_session,
+			'id',
+			self.users.search_sessions,
+			'ids',
+		)
+
+	def test_search_sessions_by_useragent_id(self):
+		id1 = self.users.create_useragent('Mozilla')
+		id2 = self.users.create_useragent('Bot')
+		self.search_by_id(
+			self.users.create_session,
+			'useragent_id',
+			self.users.search_sessions,
+			'useragent_ids',
+			id1=id1,
+			id2=id2,
+		)
+
 	def test_search_sessions_by_user_id(self):
-		self.search_by_user_id(
+		self.search_by_id(
 			self.users.create_session,
 			'user_id',
 			self.users.search_sessions,
 			'user_ids',
 		)
 
+	def test_search_authentications_by_id(self):
+		# using create_unique_authentication to avoid collisions
+		self.search_by_id(
+			self.create_unique_authentication,
+			'id',
+			self.users.search_authentications,
+			'ids',
+		)
+
 	def test_search_authentications_by_user_id(self):
 		# using create_unique_authentication to avoid collisions
-		self.search_by_user_id(
+		self.search_by_id(
 			self.create_unique_authentication,
 			'user_id',
 			self.users.search_authentications,
 			'user_ids',
 		)
 
+	def test_search_permissions_by_id(self):
+		# using create_unique_permission to avoid collisions
+		self.search_by_id(
+			self.create_unique_permission,
+			'id',
+			self.users.search_permissions,
+			'ids',
+		)
+
 	def test_search_permissions_by_user_id(self):
-		self.search_by_user_id(
+		self.search_by_id(
 			self.users.create_permission,
 			'user_id',
 			self.users.search_permissions,
 			'user_ids',
 		)
 
+	def test_search_auto_permissions_by_id(self):
+		self.search_by_id(
+			self.users.create_auto_permission,
+			'id',
+			self.users.search_auto_permissions,
+			'ids',
+		)
+
 	def test_search_auto_permissions_by_user_id(self):
-		self.search_by_user_id(
+		self.search_by_id(
 			self.users.create_auto_permission,
 			'user_id',
 			self.users.search_auto_permissions,
@@ -1243,7 +806,7 @@ class TestUsers(unittest.TestCase):
 		)
 
 	def test_search_auto_permissions_by_created_by_user_id(self):
-		self.search_by_user_id(
+		self.search_by_id(
 			self.users.create_auto_permission,
 			'created_by_user_id',
 			self.users.search_auto_permissions,
@@ -1251,80 +814,8 @@ class TestUsers(unittest.TestCase):
 		)
 
 	# search by time
-	def search_by_time(
-			self,
-			create,
-			column_field,
-			search,
-			filter_field,
-		):
-		time_oldest = 0
-		time_middle = 1
-		time_newest = 2
-
-		object_oldest = create(**{column_field: time_oldest})
-		object_middle = create(**{column_field: time_middle})
-		object_newest = create(**{column_field: time_newest})
-
-		objects = search(
-			filter={filter_field + '_before': time_newest}
-		)
-		self.assertEqual(2, len(objects))
-		self.assertTrue(object_oldest in objects)
-		self.assertTrue(object_middle in objects)
-		self.assertTrue(object_newest not in objects)
-
-		objects = search(
-			filter={filter_field + '_before': time_middle}
-		)
-		self.assertEqual(1, len(objects))
-		self.assertTrue(object_oldest in objects)
-		self.assertTrue(object_middle not in objects)
-		self.assertTrue(object_newest not in objects)
-
-		objects = search(filter={filter_field + '_before': time_oldest})
-		self.assertEqual(0, len(objects))
-
-		objects = search(filter={filter_field + '_after': time_oldest})
-		self.assertEqual(2, len(objects))
-		self.assertTrue(object_oldest not in objects)
-		self.assertTrue(object_middle in objects)
-		self.assertTrue(object_newest in objects)
-
-		objects = search(
-			filter={filter_field + '_after': time_middle}
-		)
-		self.assertEqual(1, len(objects))
-		self.assertTrue(object_oldest not in objects)
-		self.assertTrue(object_middle not in objects)
-		self.assertTrue(object_newest in objects)
-
-		objects = search(
-			filter={filter_field + '_after': time_newest}
-		)
-		self.assertEqual(0, len(objects))
-
-		objects = search(
-			filter={
-				filter_field + '_after': time_oldest,
-				filter_field + '_before': time_newest,
-			}
-		)
-		self.assertEqual(1, len(objects))
-		self.assertTrue(object_oldest not in objects)
-		self.assertTrue(object_middle in objects)
-		self.assertTrue(object_newest not in objects)
-
-		# time filters are cast to int before query
-		# so anything that doesn't cast to int should raise
-		invalid_times = ['string', b'']
-		for invalid_time in invalid_times:
-			for field_suffix in ['_before', '_after']:
-				with self.assertRaises(ValueError):
-					search(filter={filter_field + field_suffix: invalid_time})
-
 	def search_users_by_creation_time(self):
-		self.search_by_time(
+		self.search_by_time_cutoff(
 			self.users.create_user,
 			'creation_time',
 			self.users.search_users,
@@ -1332,7 +823,7 @@ class TestUsers(unittest.TestCase):
 		)
 
 	def test_search_users_by_touch_time(self):
-		self.search_by_time(
+		self.search_by_time_cutoff(
 			self.users.create_user,
 			'touch_time',
 			self.users.search_users,
@@ -1340,7 +831,7 @@ class TestUsers(unittest.TestCase):
 		)
 
 	def test_search_invites_by_creation_time(self):
-		self.search_by_time(
+		self.search_by_time_cutoff(
 			self.users.create_invite,
 			'creation_time',
 			self.users.search_invites,
@@ -1348,7 +839,7 @@ class TestUsers(unittest.TestCase):
 		)
 
 	def test_search_invitess_by_redeem_time(self):
-		self.search_by_time(
+		self.search_by_time_cutoff(
 			self.users.create_invite,
 			'redeem_time',
 			self.users.search_invites,
@@ -1356,7 +847,7 @@ class TestUsers(unittest.TestCase):
 		)
 
 	def test_search_sessions_by_creation_time(self):
-		self.search_by_time(
+		self.search_by_time_cutoff(
 			self.users.create_session,
 			'creation_time',
 			self.users.search_sessions,
@@ -1364,7 +855,7 @@ class TestUsers(unittest.TestCase):
 		)
 
 	def test_search_sessions_by_touch_time(self):
-		self.search_by_time(
+		self.search_by_time_cutoff(
 			self.users.create_session,
 			'touch_time',
 			self.users.search_sessions,
@@ -1372,7 +863,7 @@ class TestUsers(unittest.TestCase):
 		)
 
 	def test_search_sessions_by_close_time(self):
-		self.search_by_time(
+		self.search_by_time_cutoff(
 			self.users.create_session,
 			'close_time',
 			self.users.search_sessions,
@@ -1381,7 +872,7 @@ class TestUsers(unittest.TestCase):
 
 	def test_search_authentications_by_creation_time(self):
 		# using create_unique_authentication to avoid collisions
-		self.search_by_time(
+		self.search_by_time_cutoff(
 			self.create_unique_authentication,
 			'creation_time',
 			self.users.search_authentications,
@@ -1390,7 +881,7 @@ class TestUsers(unittest.TestCase):
 
 	def test_search_permissions_by_creation_time(self):
 		# using create_unique_permission to avoid collisions
-		self.search_by_time(
+		self.search_by_time_cutoff(
 			self.create_unique_permission,
 			'creation_time',
 			self.users.search_permissions,
@@ -1398,7 +889,7 @@ class TestUsers(unittest.TestCase):
 		)
 
 	def test_search_auto_permissions_by_creation_time(self):
-		self.search_by_time(
+		self.search_by_time_cutoff(
 			self.users.create_auto_permission,
 			'creation_time',
 			self.users.search_auto_permissions,
@@ -1406,7 +897,7 @@ class TestUsers(unittest.TestCase):
 		)
 
 	def test_search_auto_permissions_by_valid_from_time(self):
-		self.search_by_time(
+		self.search_by_time_cutoff(
 			self.users.create_auto_permission,
 			'valid_from_time',
 			self.users.search_auto_permissions,
@@ -1414,7 +905,7 @@ class TestUsers(unittest.TestCase):
 		)
 
 	def test_search_auto_permissions_by_valid_until_time(self):
-		self.search_by_time(
+		self.search_by_time_cutoff(
 			self.users.create_auto_permission,
 			'valid_until_time',
 			self.users.search_auto_permissions,
@@ -1422,46 +913,6 @@ class TestUsers(unittest.TestCase):
 		)
 
 	# search by string like
-	def search_by_string_like(
-			self,
-			create,
-			column_field,
-			search,
-			filter_field,
-		):
-		object_foo = create(**{column_field: 'foo'})
-		object_bar = create(**{column_field: 'bar'})
-		object_baz = create(**{column_field: 'baz'})
-
-		objects = search(filter={filter_field: 'foo'})
-		self.assertTrue(object_foo in objects)
-		self.assertTrue(object_bar not in objects)
-		self.assertTrue(object_baz not in objects)
-
-		objects = search(filter={filter_field: 'bar'})
-		self.assertTrue(object_foo not in objects)
-		self.assertTrue(object_bar in objects)
-		self.assertTrue(object_baz not in objects)
-
-		objects = search(filter={filter_field: 'ba%'})
-		self.assertTrue(object_foo not in objects)
-		self.assertTrue(object_bar in objects)
-		self.assertTrue(object_baz in objects)
-
-		objects = search(filter={filter_field: 'bat'})
-		self.assertEqual(0, len(objects))
-
-		objects = search(filter={filter_field: ['foo', 'bar']})
-		self.assertTrue(object_foo in objects)
-		self.assertTrue(object_bar in objects)
-
-		# filters with all invalid values should return none
-		# filters with at least one valid value should behave normally
-		# ignoring any invalid values
-		# but since filters are cast to string before the query they should
-		# always be valid
-		pass
-
 	def test_search_users_by_name(self):
 		self.search_by_string_like(
 			self.users.create_user,
@@ -1488,47 +939,6 @@ class TestUsers(unittest.TestCase):
 		)
 
 	# search by string equal
-	def search_by_string_equal(
-			self,
-			create,
-			column_field,
-			search,
-			filter_field,
-		):
-		object_foo = create(**{column_field: 'foo'})
-		object_bar = create(**{column_field: 'bar'})
-		object_baz = create(**{column_field: 'baz'})
-
-		objects = search(filter={filter_field: 'foo'})
-		self.assertTrue(object_foo in objects)
-		self.assertTrue(object_bar not in objects)
-		self.assertTrue(object_baz not in objects)
-
-		objects = search(filter={filter_field: 'bar'})
-		self.assertTrue(object_foo not in objects)
-		self.assertTrue(object_bar in objects)
-		self.assertTrue(object_baz not in objects)
-
-		objects = search(filter={filter_field: 'baz'})
-		self.assertTrue(object_foo not in objects)
-		self.assertTrue(object_bar not in objects)
-		self.assertTrue(object_baz in objects)
-
-		objects = search(filter={filter_field: 'bat'})
-		self.assertEqual(0, len(objects))
-
-		objects = search(filter={filter_field: ['foo', 'bar']})
-		self.assertTrue(object_foo in objects)
-		self.assertTrue(object_bar in objects)
-		self.assertTrue(object_baz not in objects)
-
-		# filters with all invalid values should return none
-		# filters with at least one valid value should behave normally
-		# ignoring any invalid values
-		# but since filters are cast to string before the query they should
-		# always be valid
-		pass
-
 	def test_search_authentications_by_service(self):
 		self.search_by_string_equal(
 			self.users.create_authentication,
@@ -1554,37 +964,6 @@ class TestUsers(unittest.TestCase):
 		)
 
 	# search by bool
-	def search_by_bool(self, create, column_field, search, filter_field):
-		object_true = create(**{column_field: 1})
-		object_false = create(**{column_field: 0})
-
-		objects = search(filter={filter_field: True})
-		self.assertTrue(object_true in objects)
-		self.assertTrue(object_false not in objects)
-
-		objects = search(filter={filter_field: False})
-		self.assertTrue(object_true not in objects)
-		self.assertTrue(object_false in objects)
-
-		# bool filters are evaluated to truthy or falsy, so there aren't
-		# any invalid inputs, just what they're interpreted as
-		truthy_inputs = [
-			True,
-			'non-empty string',
-			['non-empty list'],
-			{'non-empty': 'dict'},
-		]
-		for truthy_input in truthy_inputs:
-			objects = search(filter={filter_field: truthy_input})
-			self.assertTrue(object_true in objects)
-			self.assertTrue(object_false not in objects)
-
-		falsy_inputs = [False, '', [], {}, None]
-		for falsy_input in falsy_inputs:
-			objects = search(filter={filter_field: falsy_input})
-			self.assertTrue(object_true not in objects)
-			self.assertTrue(object_false in objects)
-
 	def test_search_users_by_protection(self):
 		def create_user_with_protection(**kwargs):
 			user = self.users.create_user()
@@ -1609,118 +988,6 @@ class TestUsers(unittest.TestCase):
 		)
 
 	# search by remote origin
-	def search_by_remote_origin(
-			self,
-			create,
-			column_field,
-			search,
-			filter_field,
-		):
-		remote_origin1 = '1.1.1.1'
-		remote_origin2 = '2.2.2.2'
-		object1 = create(**{column_field: remote_origin1})
-		object2 = create(**{column_field: remote_origin1})
-		object3 = create(**{column_field: remote_origin2})
-
-		# with
-		objects = search(
-			filter={'with_' + filter_field: remote_origin1},
-		)
-		self.assertTrue(object1 in objects)
-		self.assertTrue(object2 in objects)
-		self.assertTrue(object3 not in objects)
-
-		objects = search(
-			filter={'with_' + filter_field: remote_origin2},
-		)
-		self.assertTrue(object1 not in objects)
-		self.assertTrue(object2 not in objects)
-		self.assertTrue(object3 in objects)
-
-		objects = search(
-			filter={'with_' + filter_field: [remote_origin1, remote_origin2]},
-		)
-		self.assertTrue(object1 in objects)
-		self.assertTrue(object2 in objects)
-		self.assertTrue(object3 in objects)
-
-		# without
-		objects = search(
-			filter={'without_' + filter_field: remote_origin1},
-		)
-		self.assertTrue(object1 not in objects)
-		self.assertTrue(object2 not in objects)
-		self.assertTrue(object3 in objects)
-
-		objects = search(
-			filter={'without_' + filter_field: remote_origin2},
-		)
-		self.assertTrue(object1 in objects)
-		self.assertTrue(object2 in objects)
-		self.assertTrue(object3 not in objects)
-
-		objects = search(
-			filter={'without_' + filter_field: [remote_origin1, remote_origin2]},
-		)
-		self.assertTrue(object1 in objects)
-		self.assertTrue(object2 in objects)
-		self.assertTrue(object3 in objects)
-
-		invalid_values = [
-			'not a valid ip address string',
-			['list'],
-			{'dict': 'ionary'},
-		]
-		# filters with all invalid values should return none
-		objects = search(
-			filter={'with_' + filter_field: invalid_values}
-		)
-		self.assertEqual(0, len(objects))
-		for invalid_value in invalid_values:
-			objects = search(
-				filter={'with_' + filter_field: invalid_value},
-			)
-			self.assertEqual(0, len(objects))
-		objects = search(
-			filter={'without_' + filter_field: invalid_values}
-		)
-		self.assertEqual(0, len(objects))
-		for invalid_value in invalid_values:
-			objects = search(
-				filter={'without_' + filter_field: invalid_value},
-			)
-			self.assertEqual(0, len(objects))
-		# filters with at least one valid value should behave normally
-		# ignoring any invalid values
-		objects = search(
-			filter={'with_' + filter_field: invalid_values + [remote_origin1]},
-		)
-		self.assertTrue(object1 in objects)
-		self.assertTrue(object2 in objects)
-		self.assertTrue(object3 not in objects)
-		for invalid_value in invalid_values:
-			objects = search(
-				filter={'with_' + filter_field: [invalid_value, remote_origin1]},
-			)
-			self.assertTrue(object1 in objects)
-			self.assertTrue(object2 in objects)
-			self.assertTrue(object3 not in objects)
-		objects = search(
-			filter={'without_' + filter_field: invalid_values + [remote_origin1]},
-		)
-		self.assertTrue(object1 not in objects)
-		self.assertTrue(object2 not in objects)
-		self.assertTrue(object3 in objects)
-		for invalid_value in invalid_values:
-			objects = search(
-				filter={
-					'without_' + filter_field: [invalid_value, remote_origin1],
-				},
-			)
-			self.assertTrue(object1 not in objects)
-			self.assertTrue(object2 not in objects)
-			self.assertTrue(object3 in objects)
-
 	def test_search_sessions_by_remote_origin(self):
 		self.search_by_remote_origin(
 			self.users.create_session,
@@ -2611,73 +1878,6 @@ class TestUsers(unittest.TestCase):
 
 		self.assert_invalid_id_raises(self.users.delete_user_sessions)
 
-	def test_search_sessions_by_useragent_id(self):
-		#TODO generalize search_by_id and test search_session_by_useragent_id
-		#TODO above with the other generic searches
-		useragent1 = 'Mozilla'
-		useragent2 = 'Bot'
-
-		useragent1_id = self.users.create_useragent(useragent1)
-		useragent2_id = self.users.create_useragent(useragent2)
-
-		session1 = self.users.create_session(useragent=useragent1)
-		session2 = self.users.create_session(useragent=useragent1)
-		session3 = self.users.create_session(useragent=useragent2)
-
-		sessions = self.users.search_sessions(
-			filter={'useragent_ids': useragent1_id},
-		)
-		self.assertTrue(session1 in sessions)
-		self.assertTrue(session2 in sessions)
-		self.assertTrue(session3 not in sessions)
-
-		sessions = self.users.search_sessions(
-			filter={'useragent_ids': useragent2_id},
-		)
-		self.assertTrue(session1 not in sessions)
-		self.assertTrue(session2 not in sessions)
-		self.assertTrue(session3 in sessions)
-
-		sessions = self.users.search_sessions(
-			filter={'useragent_ids': [useragent1_id, useragent2_id]},
-		)
-		self.assertTrue(session1 in sessions)
-		self.assertTrue(session2 in sessions)
-		self.assertTrue(session3 in sessions)
-
-		invalid_values = [
-			'not a valid base64_url string',
-			'invalid_padding_for_base64_url_id',
-			1,
-			['list'],
-			{'dict': 'ionary'},
-		]
-		# filters with all invalid values should return none
-		sessions = self.users.search_sessions(
-			filter={'useragent_ids': invalid_values},
-		)
-		self.assertEqual(0, len(sessions))
-		for invalid_value in invalid_values:
-			sessions = self.users.search_sessions(
-				filter={'useragent_ids': invalid_value},
-			)
-			self.assertEqual(0, len(sessions))
-		# filters with at least one valid value should behave normally
-		# ignoring any invalid values
-		sessions = self.users.search_sessions(
-			filter={'useragent_ids': invalid_values + [useragent1_id]},
-		)
-		self.assertTrue(session1 in sessions)
-		self.assertTrue(session2 in sessions)
-		self.assertTrue(session3 not in sessions)
-		for invalid_value in invalid_values:
-			sessions = self.users.search_sessions(
-				filter={'useragent_ids': [invalid_value, useragent1_id]},
-			)
-			self.assertTrue(session1 in sessions)
-			self.assertTrue(session2 in sessions)
-			self.assertTrue(session3 not in sessions)
-
 	#TODO direct sessions useragents search tests
 	def test_search_sessions_by_useragent(self):
 		useragent1 = 'Mozilla'
@@ -2900,13 +2100,13 @@ class TestUsers(unittest.TestCase):
 			and 'discord' not in user1.authentications
 		)
 		self.assertTrue(
-			compare_int_str_and_bool_attributes(
+			compare_base_attributes(
 				authentication1,
 				user1.authentications['google'],
 			)
 		)
 		self.assertTrue(
-			compare_int_str_and_bool_attributes(
+			compare_base_attributes(
 				authentication2,
 				user1.authentications['twitter'],
 			)
@@ -2920,13 +2120,13 @@ class TestUsers(unittest.TestCase):
 			and 'discord' in user2.authentications
 		)
 		self.assertTrue(
-			compare_int_str_and_bool_attributes(
+			compare_base_attributes(
 				authentication3,
 				user2.authentications['google'],
 			)
 		)
 		self.assertTrue(
-			compare_int_str_and_bool_attributes(
+			compare_base_attributes(
 				authentication4,
 				user2.authentications['discord'],
 			)
@@ -2994,97 +2194,6 @@ class TestUsers(unittest.TestCase):
 		self.assertIsNone(self.users.get_authentication(authentication.id))
 
 	# search by group bits
-	def search_by_group_bits(self, create, search):
-		self.users.create_group('group1')
-		self.users.create_group('group2')
-		self.users.create_group('group3')
-		self.users.create_group('group4')
-		self.users.populate_groups()
-
-		group1_bit = self.users.group_name_to_bit('group1')
-		group2_bit = self.users.group_name_to_bit('group2')
-		group3_bit = self.users.group_name_to_bit('group3')
-		group4_bit = self.users.group_name_to_bit('group4')
-		group1_and_group3_bits = self.users.combine_groups(
-			names=['group1', 'group3'],
-		)
-		group2_and_group3_bits = self.users.combine_groups(
-			names=['group2', 'group3'],
-		)
-
-		object_group1 = create(group_bits=group1_bit)
-		object_group2 = create(group_bits=group2_bit)
-		object_group3 = create(group_bits=group3_bit)
-
-		object_group1_and_group3 = create(
-			group_bits=group1_and_group3_bits,
-		)
-		object_group2_and_group3 = create(
-			group_bits=group2_and_group3_bits,
-		)
-
-		for filter_prefix, assert_ in [
-				('with_', self.assertTrue),
-				('without_', self.assertFalse),
-			]:
-			objects = search(filter={filter_prefix + 'group_bits': group1_bit})
-			assert_(object_group1 in objects)
-			assert_(object_group2 not in objects)
-			assert_(object_group3 not in objects)
-			assert_(object_group1_and_group3 in objects)
-			assert_(object_group2_and_group3 not in objects)
-
-			objects = search(filter={filter_prefix + 'group_bits': group2_bit})
-			assert_(object_group1 not in objects)
-			assert_(object_group2 in objects)
-			assert_(object_group3 not in objects)
-			assert_(object_group1_and_group3 not in objects)
-			assert_(object_group2_and_group3 in objects)
-
-			objects = search(filter={filter_prefix + 'group_bits': group3_bit})
-			assert_(object_group1 not in objects)
-			assert_(object_group2 not in objects)
-			assert_(object_group3 in objects)
-			assert_(object_group1_and_group3 in objects)
-			assert_(object_group2_and_group3 in objects)
-
-			objects = search(filter={filter_prefix + 'group_bits': group4_bit})
-			assert_(object_group1 not in objects)
-			assert_(object_group2 not in objects)
-			assert_(object_group3 not in objects)
-			assert_(object_group1_and_group3 not in objects)
-			assert_(object_group2_and_group3 not in objects)
-
-		# group bit exceptions are aborted by the statement helper for with_
-		# so invalid group bits return no results
-		for invalid_value in [
-				'string',
-				['list'],
-				{'dict': 'ionary'},
-			]:
-			objects = search(filter={'with_group_bits': invalid_value})
-			self.assertEqual(0, len(objects))
-			self.assertTrue(object_group1 not in objects)
-			self.assertTrue(object_group2 not in objects)
-			self.assertTrue(object_group3 not in objects)
-			self.assertTrue(object_group1_and_group3 not in objects)
-			self.assertTrue(object_group2_and_group3 not in objects)
-
-		# group bit exceptions are consumed by the statement helper for without_
-		# so invalid group bits are ignored
-		for invalid_value in [
-				'string',
-				['list'],
-				{'dict': 'ionary'},
-			]:
-			objects = search(filter={'without_group_bits': invalid_value})
-			self.assertEqual(5, len(objects))
-			self.assertTrue(object_group1 in objects)
-			self.assertTrue(object_group2 in objects)
-			self.assertTrue(object_group3 in objects)
-			self.assertTrue(object_group1_and_group3 in objects)
-			self.assertTrue(object_group2_and_group3 in objects)
-
 	def test_search_permissions_by_group_bits(self):
 		self.search_by_group_bits(
 			self.create_unique_permission,
@@ -3126,13 +2235,13 @@ class TestUsers(unittest.TestCase):
 		permission3 = self.users.create_permission(user_id=user2.id)
 
 		self.assertTrue(
-			compare_int_str_and_bool_attributes(
+			compare_base_attributes(
 				permission1,
 				self.users.get_user_permission(user1.id, 'scope1'),
 			)
 		)
 		self.assertTrue(
-			compare_int_str_and_bool_attributes(
+			compare_base_attributes(
 				permission2,
 				self.users.get_user_permission(user1.id, 'scope2'),
 			)
@@ -3201,7 +2310,7 @@ class TestUsers(unittest.TestCase):
 		self.users.populate_user_permissions(user1)
 		self.assertTrue('scope' in user1.permissions)
 		self.assertTrue(
-			compare_int_str_and_bool_attributes(
+			compare_base_attributes(
 				permission1,
 				user1.permissions['scope'],
 			)
@@ -3210,7 +2319,7 @@ class TestUsers(unittest.TestCase):
 		self.users.populate_user_permissions(user2)
 		self.assertTrue('scope' in user2.permissions)
 		self.assertTrue(
-			compare_int_str_and_bool_attributes(
+			compare_base_attributes(
 				permission2,
 				user2.permissions['scope'],
 			)
