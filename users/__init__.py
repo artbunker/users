@@ -16,20 +16,7 @@ from statement_helper import string_like_filter, bitwise_filter
 from statement_helper import remote_origin_filter
 from base64_url import base64_url_encode, base64_url_decode
 from idcollection import IDCollection
-from parse_id import parse_id
-
-def get_id_bytes(id):
-	if isinstance(id, bytes):
-		return id
-	return base64_url_decode(id)
-
-def generate_or_parse_id(id):
-	if not id:
-		id_bytes = uuid.uuid4().bytes
-		id = base64_url_encode(id_bytes)
-	else:
-		id, id_bytes = parse_id(id)
-	return (id, id_bytes)
+from parse_id import parse_id, get_id_bytes, generate_or_parse_id
 
 def parse_status(status):
 	if isinstance(status, str):
