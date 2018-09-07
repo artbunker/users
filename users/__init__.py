@@ -11,7 +11,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import func, and_, or_
 
 from statement_helper import sort_statement, paginate_statement, id_filter
-from statement_helper import time_filter, string_equal_filter
+from statement_helper import time_cutoff_filter, string_equal_filter
 from statement_helper import string_like_filter, bitwise_filter
 from statement_helper import remote_origin_filter
 from base64_url import base64_url_encode, base64_url_decode
@@ -734,8 +734,16 @@ class Users:
 	def prepare_users_search_conditions(self, filter):
 		conditions = []
 		conditions += id_filter(filter, 'ids', self.users.c.id)
-		conditions += time_filter(filter, 'created', self.users.c.creation_time)
-		conditions += time_filter(filter, 'touched', self.users.c.touch_time)
+		conditions += time_cutoff_filter(
+			filter,
+			'created',
+			self.users.c.creation_time,
+		)
+		conditions += time_cutoff_filter(
+			filter,
+			'touched',
+			self.users.c.touch_time,
+		)
 		if 'statuses' in filter:
 			if list is not type(filter['statuses']):
 				filter['statuses'] = [filter['statuses']]
@@ -761,7 +769,7 @@ class Users:
 			last_seen_time_subquery = self.engine_session.query(
 				self.sessions.c.user_id, func.max(self.sessions.c.touch_time)
 			).group_by(self.sessions.c.user_id).subquery()
-			conditions += time_filter(
+			conditions += time_cutoff_filter(
 				filter,
 				'last_seen_time',
 				last_seen_time_subquery.c.touch_time,
@@ -948,12 +956,12 @@ class Users:
 	def prepare_invites_search_statement(self, filter):
 		conditions = []
 		conditions += id_filter(filter, 'ids', self.invites.c.id)
-		conditions += time_filter(
+		conditions += time_cutoff_filter(
 			filter,
 			'created',
 			self.invites.c.creation_time,
 		)
-		conditions += time_filter(filter, 'redeemed', self.invites.c.redeem_time)
+		conditions += time_cutoff_filter(filter, 'redeemed', self.invites.c.redeem_time)
 		conditions += id_filter(
 			filter,
 			'created_by_user_ids',
@@ -1094,7 +1102,7 @@ class Users:
 	def prepare_sessions_search_conditions(self, filter, useragents_subquery):
 		conditions = []
 		conditions += id_filter(filter, 'ids', self.sessions.c.id)
-		conditions += time_filter(
+		conditions += time_cutoff_filter(
 			filter,
 			'created',
 			self.sessions.c.creation_time,
@@ -1119,12 +1127,12 @@ class Users:
 			'useragent_ids',
 			self.sessions.c.useragent_id,
 		)
-		conditions += time_filter(
+		conditions += time_cutoff_filter(
 			filter,
 			'touched',
 			self.sessions.c.touch_time,
 		)
-		conditions += time_filter(
+		conditions += time_cutoff_filter(
 			filter,
 			'closed',
 			self.sessions.c.close_time,
@@ -1339,7 +1347,7 @@ class Users:
 	def prepare_authentications_search_statement(self, filter={}):
 		conditions = []
 		conditions += id_filter(filter, 'ids', self.authentications.c.id)
-		conditions += time_filter(
+		conditions += time_cutoff_filter(
 			filter,
 			'created',
 			self.authentications.c.creation_time,
@@ -1547,7 +1555,7 @@ class Users:
 	def prepare_permissions_search_statement(self, filter={}):
 		conditions = []
 		conditions += id_filter(filter, 'ids', self.permissions.c.id)
-		conditions += time_filter(
+		conditions += time_cutoff_filter(
 			filter,
 			'created',
 			self.permissions.c.creation_time,
@@ -1723,7 +1731,7 @@ class Users:
 	def prepare_auto_permissions_search_statement(self, filter={}):
 		conditions = []
 		conditions += id_filter(filter, 'ids', self.auto_permissions.c.id)
-		conditions += time_filter(
+		conditions += time_cutoff_filter(
 			filter,
 			'created',
 			self.auto_permissions.c.creation_time,
@@ -1751,12 +1759,12 @@ class Users:
 			conditions.append(
 				self.auto_permissions.c.duration < int(filter['duration_shorter_than'])
 			)
-		conditions += time_filter(
+		conditions += time_cutoff_filter(
 			filter,
 			'valid_from',
 			self.auto_permissions.c.valid_from_time,
 		)
-		conditions += time_filter(
+		conditions += time_cutoff_filter(
 			filter,
 			'valid_until',
 			self.auto_permissions.c.valid_until_time,
