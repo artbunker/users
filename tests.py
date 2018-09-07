@@ -1517,6 +1517,11 @@ class TestUsers(unittest.TestCase):
 		objects = search(filter={filter_field: 'bat'})
 		self.assertEqual(0, len(objects))
 
+		objects = search(filter={filter_field: ['foo', 'bar']})
+		self.assertTrue(object_foo in objects)
+		self.assertTrue(object_bar in objects)
+		self.assertTrue(object_baz not in objects)
+
 		# filters with all invalid values should return none
 		# filters with at least one valid value should behave normally
 		# ignoring any invalid values
