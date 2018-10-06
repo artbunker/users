@@ -1202,6 +1202,12 @@ class Users:
 
 		result = self.connection.execute(statement).fetchall()
 
+		user_ids = []
+		for row in result:
+			user_ids.append(row[self.sessions.c.user_id])
+
+		users = self.search_users(filter={'ids': user_ids})
+
 		sessions = IDCollection()
 		for row in result:
 			useragent = ''
@@ -1217,6 +1223,8 @@ class Users:
 				close_time=row[self.sessions.c.close_time],
 				useragent=useragent,
 			)
+			if session.user_id in users:
+				session.user = users.get(session.user_id)
 			sessions.add(session)
 
 		return sessions
