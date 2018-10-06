@@ -1671,6 +1671,10 @@ class Users:
 	def create_permission(self, id=None, **kwargs):
 		if not id:
 			id = uuid.uuid4().bytes
+		if 'group_bits' in kwargs and -1 == kwargs['group_bits']:
+			kwargs['group_bits'] = 0
+			while kwargs['group_bits'] <= (self.group_bits_length * 8):
+				kwargs['group_bits'] = (kwargs['group_bits'] << 1) + 1
 		permission = Permission(id, **kwargs)
 		# preflight check for existing id
 		if self.get_permission(permission.id_bytes):
