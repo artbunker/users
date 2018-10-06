@@ -20,7 +20,7 @@ from parse_id import parse_id, get_id_bytes, generate_or_parse_id
 
 def parse_status(status):
 	if isinstance(status, str):
-		status = UserStatus[status]
+		status = UserStatus[status.upper()]
 	elif isinstance(status, int):
 		status = UserStatus(status)
 	elif not isinstance(status, UserStatus):
