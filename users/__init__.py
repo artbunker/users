@@ -1896,6 +1896,37 @@ class Users:
 		)
 		return auto_permission
 
+	#TODO tests
+	def update_auto_permission(self, id, **kwargs):
+		auto_permission = AutoPermission(id=id, **kwargs)
+		updates = {}
+		if 'creation_time' in kwargs:
+			updates['creation_time'] = int(auto_permission.creation_time)
+		if 'user_id' in kwargs:
+			updates['user_id'] = auto_permission.user_id_bytes
+		if 'scope' in kwargs:
+			updates['scope'] = str(auto_permission.scope)
+		if 'group_bits' in kwargs:
+			updates['group_bits'] = int.from_bytes(
+				auto_permission.group_bits,
+				'big',
+			)
+		if 'duration' in kwargs:
+			updates['duration'] = int(auto_permission.duration)
+		if 'valid_from_time' in kwargs:
+			updates['valid_from_time'] = int(auto_permission.valid_from_time)
+		if 'valid_until_time' in kwargs:
+			updates['valid_until_time'] = int(auto_permission.valid_until_time)
+		if 'created_by_user_id' in kwargs:
+			updates['created_by_user_id'] = auto_permission.created_by_user_id_bytes
+		if 0 == len(updates):
+			return
+		self.connection.execute(
+			self.auto_permissions.update().values(**updates).where(
+				self.auto_permissions.c.id == auto_permission.id_bytes
+			)
+		)
+
 	def delete_auto_permission(self, id):
 		id = get_id_bytes(id)
 		self.connection.execute(
