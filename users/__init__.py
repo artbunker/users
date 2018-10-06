@@ -685,6 +685,10 @@ class Users:
 		return self.group_names_to_bits[name]
 
 	def combine_groups(self, names=[], bits=[]):
+		if list is not type(names):
+			names = [names]
+		if list is not type(bits):
+			bits = [bits]
 		combined = 0
 		if 0 < len(names):
 			for name in names:
