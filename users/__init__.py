@@ -875,7 +875,7 @@ class Users:
 	def create_user(self, **kwargs):
 		user = User(**kwargs)
 		# preflight check for existing id
-		if self.get_user(id=user.id_bytes):
+		if self.get_user(user.id_bytes):
 			raise ValueError('User ID collision')
 		if self.require_unique_names:
 			self.check_duplicate_name(user)
