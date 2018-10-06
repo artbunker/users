@@ -1482,9 +1482,7 @@ class Users:
 		if 0 < len(existing_authentications):
 			existing_authentication = existing_authentications.values()[0]
 			if existing_authentication.forbidden:
-				raise ValueError(
-					'This authentication has been forbidden'
-				)
+				raise ValueError('This authentication has been forbidden')
 			if existing_authentication.user_id == authentication.user_id:
 				return existing_authentication
 			raise ValueError(
