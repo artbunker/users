@@ -2136,6 +2136,8 @@ class Users:
 			)
 		)
 
+		return new_user_id
+
 	def anonymize_session_origins(self, sessions):
 		for session in sessions.values():
 			if 4 == session.remote_origin.version:
