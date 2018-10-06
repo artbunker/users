@@ -293,7 +293,7 @@ class AutoPermission:
 			group_bits=0,
 			group_names=[],
 			duration=0,
-			valid_from_time=None,
+			valid_from_time=0,
 			valid_until_time=0,
 			created_by_user_id='',
 		):
@@ -318,8 +318,6 @@ class AutoPermission:
 
 		self.duration = int(duration)
 
-		if None == valid_from_time:
-			valid_from_time = time.time()
 		self.valid_from_time = int(valid_from_time)
 		self.valid_from_datetime = datetime.fromtimestamp(
 			self.valid_from_time,
