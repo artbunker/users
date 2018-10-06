@@ -1675,6 +1675,10 @@ class Users:
 			kwargs['group_bits'] = 0
 			while kwargs['group_bits'] <= (self.group_bits_length * 8):
 				kwargs['group_bits'] = (kwargs['group_bits'] << 1) + 1
+		opts = {}
+		if 'preserve_protected' in kwargs:
+			opts['preserve_protected'] = kwargs['preserve_protected']
+			del kwargs['preserve_protected']
 		permission = Permission(id, **kwargs)
 		# preflight check for existing id
 		if self.get_permission(permission.id_bytes):
@@ -1683,6 +1687,7 @@ class Users:
 		self.delete_permissions(
 			user_ids=permission.user_id_bytes,
 			scope=permission.scope,
+			**opts
 		)
 		self.connection.execute(
 			self.permissions.insert(),
