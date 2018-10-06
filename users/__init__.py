@@ -577,7 +577,7 @@ class Users:
 		# if global scope exists put it at the beginning of available scopes
 		if '' in self.available_scopes:
 			self.available_scopes.remove('')
-			self.available_scopes.insert(0, '')
+		self.available_scopes.insert(0, '')
 
 	def create_scope(self, scope):
 		self.populate_scopes()
