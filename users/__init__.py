@@ -1650,7 +1650,7 @@ class Users:
 		return permissions
 
 	def populate_user_permissions(self, user):
-		permissions = self.get_user_permissions(user.id)
+		permissions = self.get_user_permissions(user.id_bytes)
 		user.permissions = {}
 		for permission in permissions.values():
 			user.permissions[permission.scope] = permission
