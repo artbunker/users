@@ -2800,6 +2800,10 @@ class TestUsers(TestHelper):
 		for count, filter_field in count_methods_filter_fields:
 			self.assertEqual(1, count(filter={filter_field: new_id_bytes}))
 
+	#TODO passing in an id to use for anonymization is allowed, so test it
+	def test_anonymize_user_with_new_id(self):
+		pass
+
 	def test_anonymize_session_origins(self):
 		origin1 = '1.2.3.4'
 		expected_anonymized_origin1 = '1.2.0.0'
