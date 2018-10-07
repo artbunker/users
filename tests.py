@@ -2789,11 +2789,16 @@ class TestUsers(TestHelper):
 		for count, filter_field in count_methods_filter_fields:
 			self.assertEqual(1, count(filter={filter_field: user.id}))
 
-		self.users.anonymize_user(user.id)
+		new_id_bytes = self.users.anonymize_user(user.id)
 
 		self.assertIsNone(self.users.get_user(user.id))
 		for count, filter_field in count_methods_filter_fields:
 			self.assertEqual(0, count(filter={filter_field: user.id}))
+
+		# assert user and related data still exist, but with the new id
+		self.assertIsNotNone(self.users.get_user(new_id_bytes))
+		for count, filter_field in count_methods_filter_fields:
+			self.assertEqual(1, count(filter={filter_field: new_id_bytes}))
 
 	def test_anonymize_session_origins(self):
 		origin1 = '1.2.3.4'
