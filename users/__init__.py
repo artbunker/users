@@ -1045,10 +1045,8 @@ class Users:
 		return invites
 
 	# manipulate invites
-	def create_invite(self, id=None, **kwargs):
-		if not id:
-			id = uuid.uuid4().bytes
-		invite = Invite(id, **kwargs)
+	def create_invite(self, **kwargs):
+		invite = Invite(**kwargs)
 		# preflight check for existing id
 		if self.get_invite(invite.id_bytes):
 			raise ValueError('Invite ID collision')
@@ -1249,12 +1247,10 @@ class Users:
 			)
 		)
 
-	def create_session(self, id=None, **kwargs):
-		if not id:
-			id = uuid.uuid4().bytes
+	def create_session(self, **kwargs):
 		if 'useragent' in kwargs:
 			kwargs['useragent_id'] = self.create_useragent(kwargs['useragent'])
-		session = Session(id, **kwargs)
+		session = Session(**kwargs)
 		# preflight check for existing id
 		if self.count_sessions(filter={'ids': session.id_bytes}):
 			raise ValueError('Session ID collision')
@@ -1457,10 +1453,8 @@ class Users:
 			user.authentications[authentication.service] = authentication
 
 	# manipulate authentications
-	def create_authentication(self, id=None, **kwargs):
-		if not id:
-			id = uuid.uuid4().bytes
-		authentication = Authentication(id, **kwargs)
+	def create_authentication(self, **kwargs):
+		authentication = Authentication(**kwargs)
 		# preflight check for existing authentication user_id/service pair
 		auth_count = self.count_authentications(
 				filter={
@@ -1668,9 +1662,7 @@ class Users:
 					user.permissions[permission.scope] = permission
 
 	# manipulate permissions
-	def create_permission(self, id=None, **kwargs):
-		if not id:
-			id = uuid.uuid4().bytes
+	def create_permission(self, **kwargs):
 		if 'group_bits' in kwargs and -1 == kwargs['group_bits']:
 			kwargs['group_bits'] = 0
 			while kwargs['group_bits'] <= (self.group_bits_length * 8):
@@ -1679,7 +1671,7 @@ class Users:
 		if 'preserve_protected' in kwargs:
 			opts['preserve_protected'] = kwargs['preserve_protected']
 			del kwargs['preserve_protected']
-		permission = Permission(id, **kwargs)
+		permission = Permission(**kwargs)
 		# preflight check for existing id
 		if self.get_permission(permission.id_bytes):
 			raise ValueError('Permission ID collision')
@@ -1875,10 +1867,8 @@ class Users:
 		return auto_permissions
 
 	# manipulate auto permissions
-	def create_auto_permission(self, id=None, **kwargs):
-		if not id:
-			id = uuid.uuid4().bytes
-		auto_permission = AutoPermission(id, **kwargs)
+	def create_auto_permission(self, **kwargs):
+		auto_permission = AutoPermission(**kwargs)
 		# preflight check for existing id
 		if self.get_auto_permission(auto_permission.id_bytes):
 			raise ValueError('Auto permission ID collision')
