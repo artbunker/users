@@ -1023,6 +1023,11 @@ class TestUsers(TestHelper):
 	# scopes
 	def test_create_and_populate_scopes(self):
 		self.assertEqual(0, len(self.users.available_scopes))
+
+		self.users.populate_scopes()
+		# global scope is always included
+		self.assertEqual(1, len(self.users.available_scopes))
+
 		self.assertTrue('scope1' not in self.users.available_scopes)
 		self.assertTrue('scope2' not in self.users.available_scopes)
 
@@ -1030,7 +1035,7 @@ class TestUsers(TestHelper):
 		self.users.create_scope('scope2')
 		self.users.populate_scopes()
 
-		self.assertEqual(2, len(self.users.available_scopes))
+		self.assertEqual(3, len(self.users.available_scopes))
 		self.assertTrue('scope1' in self.users.available_scopes)
 		self.assertTrue('scope2' in self.users.available_scopes)
 		self.assertTrue('fake_scope' not in self.users.available_scopes)
@@ -1041,13 +1046,13 @@ class TestUsers(TestHelper):
 		self.users.create_scope('scope')
 		self.users.populate_scopes()
 
-		self.assertEqual(1, len(self.users.available_scopes))
+		self.assertEqual(2, len(self.users.available_scopes))
 		self.assertTrue('scope' in self.users.available_scopes)
 
 		self.users.create_scope('scope')
 		self.users.populate_scopes()
 
-		self.assertEqual(1, len(self.users.available_scopes))
+		self.assertEqual(2, len(self.users.available_scopes))
 		self.assertTrue('scope' in self.users.available_scopes)
 
 	def test_delete_scope(self):
@@ -1056,7 +1061,7 @@ class TestUsers(TestHelper):
 		self.users.create_scope('scope3')
 		self.users.populate_scopes()
 
-		self.assertEqual(3, len(self.users.available_scopes))
+		self.assertEqual(4, len(self.users.available_scopes))
 		self.assertTrue('scope1' in self.users.available_scopes)
 		self.assertTrue('scope2' in self.users.available_scopes)
 		self.assertTrue('scope3' in self.users.available_scopes)
@@ -1064,7 +1069,7 @@ class TestUsers(TestHelper):
 		self.users.delete_scope('scope2')
 		self.users.populate_scopes()
 
-		self.assertEqual(2, len(self.users.available_scopes))
+		self.assertEqual(3, len(self.users.available_scopes))
 		self.assertTrue('scope1' in self.users.available_scopes)
 		self.assertTrue('scope2' not in self.users.available_scopes)
 		self.assertTrue('scope3' in self.users.available_scopes)
