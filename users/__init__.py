@@ -5,7 +5,7 @@ from ipaddress import ip_address
 from enum import Enum
 from datetime import datetime, timezone
 
-from sqlalchemy import Table, Column, PrimaryKeyConstraint, LargeBinary
+from sqlalchemy import Table, Column, LargeBinary
 from sqlalchemy import Integer, String, MetaData, ForeignKey
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import func, and_, or_
@@ -14,7 +14,6 @@ from statement_helper import sort_statement, paginate_statement, id_filter
 from statement_helper import time_cutoff_filter, string_equal_filter
 from statement_helper import string_like_filter, bitwise_filter
 from statement_helper import remote_origin_filter
-from base64_url import base64_url_encode, base64_url_decode
 from idcollection import IDCollection
 from parse_id import parse_id, get_id_bytes, generate_or_parse_id
 
