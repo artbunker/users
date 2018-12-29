@@ -823,7 +823,7 @@ class Users:
 		if conditions:
 			statement = statement.where(and_(*conditions))
 
-		session_uuid, last_seen_time_column = last_seen_time_subquery.c
+		user_id, last_seen_time_column = last_seen_time_subquery.c
 
 		if 'last_seen_time' == sort:
 			sort = last_seen_time_column
@@ -1443,6 +1443,7 @@ class Users:
 				authentication.user = users.get(authentication.user_id)
 
 			authentications.add(authentication)
+
 		return authentications
 
 	def populate_user_authentications(self, user):
