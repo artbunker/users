@@ -5,8 +5,9 @@ from ipaddress import ip_address
 from enum import Enum
 from datetime import datetime, timezone
 
-from sqlalchemy import Table, Column, LargeBinary
-from sqlalchemy import Integer, String, MetaData, ForeignKey
+from sqlalchemy import Table, Column, PrimaryKeyConstraint, Binary as sqla_binary
+from sqlalchemy import Integer, String, MetaData
+from sqlalchemy.dialects.mysql import VARBINARY as mysql_binary
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import func, and_, or_
 
@@ -362,192 +363,150 @@ class Users:
 
 		default_bytes = 0b0 * 16
 
+		if 'mysql' == self.engine_session.bind.dialect.name:
+			Binary = mysql_binary
+		else:
+			Binary = sqla_binary
+
 		# users tables
 		self.users = Table(
 			self.db_prefix + 'users',
 			metadata,
-			Column(
-				'id',
-				LargeBinary(16),
-				primary_key=True,
-				default=default_bytes
-			),
+			Column('id', Binary(16), default=default_bytes),
 			Column('creation_time', Integer, default=0),
 			Column('touch_time', Integer, default=0),
 			Column(
 				'status',
 				Integer,
-				default=int(UserStatus.AWAITING_ACTIVATION)
+				default=int(UserStatus.AWAITING_ACTIVATION),
 			),
 			Column('name', String(self.name_length), default=''),
 			Column('display', String(self.display_length), default=''),
+			PrimaryKeyConstraint('id'),
 		)
 
 		# protections tables
 		self.protections = Table(
 			self.db_prefix + 'protections',
 			metadata,
-			Column(
-				'user_id',
-				None,
-				ForeignKey(self.db_prefix + 'users.id'),
-				primary_key=True,
-				default=default_bytes
-			),
+			Column('user_id', Binary(16), default=default_bytes),
+			PrimaryKeyConstraint('user_id'),
 		)
 
 		# invites tables
 		self.invites = Table(
 			self.db_prefix + 'invites',
 			metadata,
-			Column(
-				'id',
-				LargeBinary(16),
-				primary_key=True,
-				default=default_bytes
-			),
+			Column('id', Binary(16), default=default_bytes),
 			Column('creation_time', Integer, default=0),
 			Column('redeem_time', Integer, default=0),
-			Column(
-				'created_by_user_id',
-				None,
-				ForeignKey(self.db_prefix + 'users.id'),
-				default=default_bytes
-			),
-			Column(
-				'redeemed_by_user_id',
-				None,
-				ForeignKey(self.db_prefix + 'users.id'),
-				default=default_bytes
-			),
+			Column('created_by_user_id', Binary(16), default=default_bytes),
+			Column('redeemed_by_user_id', Binary(16), default=default_bytes),
+			PrimaryKeyConstraint('id'),
 		)
 
 		# sessions tables
 		self.useragents = Table(
 			self.db_prefix + 'useragents',
 			metadata,
-			Column(
-				'id',
-				LargeBinary(16),
-				primary_key=True,
-				default=default_bytes
-			),
+			Column('id', Binary(16), default=default_bytes),
 			Column('useragent', String(self.useragents_length), default=''),
+			PrimaryKeyConstraint('id'),
 		)
 		self.sessions = Table(
 			self.db_prefix + 'sessions',
 			metadata,
-			Column(
-				'id',
-				LargeBinary(16),
-				primary_key=True,
-				default=default_bytes
-			),
+			Column('id', Binary(16), default=default_bytes),
 			Column('creation_time', Integer, default=0),
-			Column('user_id', None, ForeignKey(self.db_prefix + 'users.id')),
+			Column('user_id', Binary(16), default=default_bytes),
 			Column(
 				'remote_origin',
-				LargeBinary(16),
-				default=ip_address(default_bytes)
+				Binary(16),
+				default=ip_address(default_bytes).packed,
 			),
-			Column(
-				'useragent_id',
-				None,
-				ForeignKey(self.db_prefix + 'useragents.id')
-			),
+			Column('useragent_id', Binary(16), default=default_bytes),
 			Column('touch_time', Integer, default=0),
 			Column('close_time', Integer, default=0),
+			PrimaryKeyConstraint('id'),
 		)
 
 		# authentications tables
 		self.authentications = Table(
 			self.db_prefix + 'authentications',
 			metadata,
-			Column(
-				'id',
-				LargeBinary(16),
-				primary_key=True,
-				default=default_bytes
-			),
+			Column('id', Binary(16), default=default_bytes),
 			Column('creation_time', Integer, default=0),
-			Column(
-				'user_id',
-				None,
-				ForeignKey(self.db_prefix + 'users.id'),
-				default=default_bytes
-			),
+			Column('user_id', Binary(16), default=default_bytes),
 			Column(
 				'service',
 				String(self.authentication_service_length),
-				default=''
+				default='',
 			),
 			Column('value', String(self.authentication_value_length), default=''),
 			Column('forbidden', Integer, default=0),
+			PrimaryKeyConstraint('id'),
 		)
 
 		# scopes tables
 		self.scopes = Table(
 			self.db_prefix + 'scopes',
 			metadata,
-			Column('scope', String(self.scope_length), primary_key=True),
+			Column('scope', String(self.scope_length)),
+			PrimaryKeyConstraint('scope'),
 		)
 
 		# groups tables
-		self.groups = Table(self.db_prefix + 'groups', metadata,
-			Column('name', String(self.group_name_length), primary_key=True),
+		self.groups = Table(
+			self.db_prefix + 'groups',
+			metadata,
+			Column('name', String(self.group_name_length)),
 			Column('bit', Integer, default=0),
+			PrimaryKeyConstraint('name'),
 		)
 
 		# permissions tables
 		self.permissions = Table(
 			self.db_prefix + 'permissions',
 			metadata,
-			Column('id', LargeBinary(16), primary_key=True, default=default_bytes),
+			Column('id', Binary(16), default=default_bytes),
 			Column('creation_time', Integer, default=0),
-			Column(
-				'user_id',
-				None,
-				ForeignKey(self.db_prefix + 'users.id'),
-				default=default_bytes
-			),
-			Column('scope', None, ForeignKey(self.db_prefix + 'scopes.scope')),
-			Column('group_bits', None, ForeignKey(self.db_prefix + 'groups.bit')),
+			Column('user_id', Binary(16), default=default_bytes),
+			Column('scope', String(self.scope_length), default=''),
+			Column('group_bits', Integer, default=0),
+			PrimaryKeyConstraint('id'),
 		)
 
 		# auto permissions tables
 		self.auto_permissions = Table(
 			self.db_prefix + 'auto_permissions',
 			metadata,
-			Column('id', LargeBinary(16), primary_key=True, default=default_bytes),
+			Column('id', Binary(16), default=default_bytes),
 			Column('creation_time', Integer, default=0),
-			Column(
-				'user_id',
-				None,
-				ForeignKey(self.db_prefix + 'users.id'),
-				default=default_bytes
-			),
-			Column('scope', None, ForeignKey(self.db_prefix + 'scopes.scope')),
-			Column('group_bits', None, ForeignKey(self.db_prefix + 'groups.bit')),
+			Column('user_id', Binary(16), default=default_bytes),
+			Column('scope', String(self.scope_length), default=''),
+			Column('group_bits', Integer, default=0),
 			Column('duration', Integer, default=0),
 			Column('valid_from_time', Integer, default=0),
 			Column('valid_until_time', Integer, default=0),
-			Column(
-				'created_by_user_id',
-				None,
-				ForeignKey(self.db_prefix + 'users.id'),
-				default=default_bytes
-			),
+			Column('created_by_user_id', Binary(16), default=default_bytes),
 		)
 
 		self.connection = self.engine.connect()
 
 		if install:
-			table_exists = self.engine.dialect.has_table(
-				self.engine,
-				self.db_prefix + 'users'
-			)
-			if not table_exists:
-				metadata.create_all(self.engine)
+			for table in [
+					self.users,
+					self.protections,
+					self.invites,
+					self.useragents,
+					self.sessions,
+					self.authentications,
+					self.scopes,
+					self.groups,
+					self.permissions,
+					self.auto_permissions,
+				]:
+				table.create(bind=self.engine, checkfirst=True)
 
 	def uninstall(self):
 		for table in [
