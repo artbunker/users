@@ -1966,7 +1966,8 @@ class Users:
 
 		rows = []
 		for user_id, scopes in new_permissions.items():
-			for scope, group_bits_int in scopes.items():
+			for scope, group_bits in scopes.items():
+				group_bits_int = int.from_bytes(group_bits, 'big')
 				if user_id in protected_users:
 					# update protected users with new permissions
 					self.connection.execute(
