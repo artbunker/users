@@ -334,7 +334,7 @@ class AutoPermission:
 		self.created_by_user = None
 
 class Users:
-	def __init__(self, engine, db_prefix='', install=False):
+	def __init__(self, engine, db_prefix='', install=False, connection=None):
 		self.engine = engine
 		self.engine_session = sessionmaker(bind=self.engine)()
 
@@ -491,7 +491,10 @@ class Users:
 			Column('created_by_user_id', Binary(16), default=default_bytes),
 		)
 
-		self.connection = self.engine.connect()
+		if connection:
+			self.connection = connection
+		else:
+			self.connection = self.engine.connect()
 
 		if install:
 			for table in [
