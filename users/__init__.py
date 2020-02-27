@@ -1049,7 +1049,7 @@ class Users:
 	def get_useragent_id(self, useragent):
 		result = self.connection.execute(
 			self.useragents.select().where(
-				self.useragents.c.useragent == str(useragent)
+				self.useragents.c.useragent == str(useragent)[:self.useragents_length]
 			)
 		).fetchone()
 		if not result:
@@ -1078,6 +1078,10 @@ class Users:
 			'remote_origins',
 			self.sessions.c.remote_origin,
 		)
+		if 'useragents' in filter:
+			truncated_useragents = []
+			for useragent in filter['useragents']:
+				truncated_useragents.append(useragent[:self.useragents_length])
 		conditions += string_equal_filter(
 			filter,
 			'useragents',
@@ -1190,6 +1194,7 @@ class Users:
 
 	# manipulate sessions
 	def create_useragent(self, useragent):
+		useragent = useragent[:self.useragents_length]
 		# preflight check for existing id
 		id = self.get_useragent_id(useragent)
 		if not id:
@@ -1202,6 +1207,7 @@ class Users:
 		return id
 
 	def delete_useragent(self, useragent):
+		useragent = useragent[:self.useragents_length]
 		self.connection.execute(
 			self.useragents.delete().where(
 				self.useragents.c.useragent == str(useragent)
@@ -1210,6 +1216,7 @@ class Users:
 
 	def create_session(self, **kwargs):
 		if 'useragent' in kwargs:
+			kwargs['useragent'] = kwargs['useragent'][:self.useragents_length]
 			kwargs['useragent_id'] = self.create_useragent(kwargs['useragent'])
 		session = Session(**kwargs)
 		# preflight check for existing id
