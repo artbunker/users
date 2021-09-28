@@ -1940,7 +1940,7 @@ class Users:
 				if user.protected:
 					# for protected users start with existing permission
 					if scope in user.permissions:
-						update_permissions[user.id_bytes][scope] = int.from_bytes(
+						new_permissions[user.id_bytes][scope] = int.from_bytes(
 							user.permissions[scope].group_bits,
 							'big',
 						)
